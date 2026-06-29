@@ -10,3 +10,5 @@ snowflake-connector-python[secure-local-storage, pandas]
 snowflake-snowpark-python
 pywin32
 nbformat
+statsmodels
+

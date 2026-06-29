@@ -1,2 +1,2 @@
-# inngangsanalyse
+# Inngangsanalyse
 Inngangsanalyse kundesenter

@@ -219,3 +219,5 @@ $RECYCLE.BIN/
 *.lnk
 
 # End of https://www.toptal.com/developers/gitignore/api/windows,visualstudiocode,python
+data/temperatur_blindern.csv
+data/temperatur_oslo.csv

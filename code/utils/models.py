@@ -137,12 +137,19 @@ def fit_count_model(
 	feature_cols: list[str],
 	target_col: str = "antall_samtaler",
 	categorical_features: list[str] | None = None,
+	alpha: float = 0.0,
+	max_iter: int = 3000,
 ) -> Pipeline:
 	X, y = _prepare_xy(df=df, feature_cols=feature_cols, target_col=target_col)
 	if (y < 0).any():
 		raise ValueError("Poisson-modell krever ikke-negative target-verdier.")
 
-	model = build_count_model(X, categorical_features=categorical_features)
+	model = build_count_model(
+		X,
+		categorical_features=categorical_features,
+		alpha=alpha,
+		max_iter=max_iter,
+	)
 	model.fit(X, y)
 	return model
 
@@ -197,12 +204,19 @@ def cross_validate_count_model(
 	categorical_features: list[str] | None = None,
 	k: int = 10,
 	random_state: int = 42,
+	alpha: float = 0.0,
+	max_iter: int = 3000,
 ) -> dict[str, float]:
 	X, y = _prepare_xy(df=df, feature_cols=feature_cols, target_col=target_col)
 	if (y < 0).any():
 		raise ValueError("Poisson-modell krever ikke-negative target-verdier.")
 
-	model = build_count_model(X, categorical_features=categorical_features)
+	model = build_count_model(
+		X,
+		categorical_features=categorical_features,
+		alpha=alpha,
+		max_iter=max_iter,
+	)
 	cv = KFold(n_splits=k, shuffle=True, random_state=random_state)
 	scoring = {
 		"poisson_dev": make_scorer(mean_poisson_deviance, greater_is_better=False),

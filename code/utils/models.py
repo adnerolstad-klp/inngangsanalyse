@@ -159,10 +159,25 @@ def fit_mean_duration_model(
 	feature_cols: list[str],
 	target_col: str = "behandlingstid_snitt",
 	categorical_features: list[str] | None = None,
+	sample_weight: pd.Series | np.ndarray | None = None,
 ) -> Pipeline:
 	X, y = _prepare_xy(df=df, feature_cols=feature_cols, target_col=target_col)
 	model = build_mean_duration_model(X, categorical_features=categorical_features)
-	model.fit(X, y)
+
+	if sample_weight is None:
+		model.fit(X, y)
+	else:
+		if isinstance(sample_weight, pd.Series):
+			weights = sample_weight.loc[X.index].astype(float).to_numpy()
+		else:
+			weights = np.asarray(sample_weight, dtype=float)
+
+		if np.any(weights < 0):
+			raise ValueError("sample_weight inneholder negative verdier.")
+		if len(weights) != len(X):
+			raise ValueError("sample_weight ma ha samme lengde som treningsdata.")
+
+		model.fit(X, y, model__sample_weight=weights)
 	return model
 
 
@@ -245,21 +260,68 @@ def cross_validate_mean_duration_model(
 	categorical_features: list[str] | None = None,
 	k: int = 10,
 	random_state: int = 42,
+	sample_weight_col: str | None = None,
 ) -> dict[str, float]:
-	X, y = _prepare_xy(df=df, feature_cols=feature_cols, target_col=target_col)
-	model = build_mean_duration_model(X, categorical_features=categorical_features)
-	cv = KFold(n_splits=k, shuffle=True, random_state=random_state)
+	if sample_weight_col is None:
+		X, y = _prepare_xy(df=df, feature_cols=feature_cols, target_col=target_col)
+		model = build_mean_duration_model(X, categorical_features=categorical_features)
+		cv = KFold(n_splits=k, shuffle=True, random_state=random_state)
 
-	result = cross_validate(
-		model,
-		X,
-		y,
-		cv=cv,
-		scoring=["neg_mean_absolute_error", "neg_root_mean_squared_error", "r2"],
-		n_jobs=-1,
-		error_score="raise",
-	)
-	return _summarize_cv(result)
+		result = cross_validate(
+			model,
+			X,
+			y,
+			cv=cv,
+			scoring=["neg_mean_absolute_error", "neg_root_mean_squared_error", "r2"],
+			n_jobs=-1,
+			error_score="raise",
+		)
+		return _summarize_cv(result)
+
+	if sample_weight_col not in df.columns:
+		raise ValueError(f"Mangler sample_weight-kolonne i df: {sample_weight_col}")
+
+	feature_cols = _resolve_feature_columns(df, feature_cols)
+	frame = df[feature_cols + [target_col, sample_weight_col]].dropna(subset=[target_col, sample_weight_col]).copy()
+	X = frame[feature_cols]
+	y = frame[target_col].astype(float)
+	weights = frame[sample_weight_col].astype(float)
+
+	if (weights < 0).any():
+		raise ValueError("sample_weight inneholder negative verdier.")
+
+	cv = KFold(n_splits=k, shuffle=True, random_state=random_state)
+	fold_rows = []
+
+	for train_idx, test_idx in cv.split(X):
+		X_train = X.iloc[train_idx]
+		X_test = X.iloc[test_idx]
+		y_train = y.iloc[train_idx]
+		y_test = y.iloc[test_idx]
+		w_train = weights.iloc[train_idx].to_numpy()
+		w_test = weights.iloc[test_idx].to_numpy()
+
+		model = build_mean_duration_model(X_train, categorical_features=categorical_features)
+		model.fit(X_train, y_train, model__sample_weight=w_train)
+		pred = model.predict(X_test)
+
+		fold_rows.append(
+			{
+				"mae": mean_absolute_error(y_test, pred, sample_weight=w_test),
+				"rmse": np.sqrt(mean_squared_error(y_test, pred, sample_weight=w_test)),
+				"r2": r2_score(y_test, pred, sample_weight=w_test),
+			}
+		)
+
+	fold_df = pd.DataFrame(fold_rows)
+	return {
+		"mean_absolute_error_mean": float(fold_df["mae"].mean()),
+		"mean_absolute_error_std": float(fold_df["mae"].std()),
+		"root_mean_squared_error_mean": float(fold_df["rmse"].mean()),
+		"root_mean_squared_error_std": float(fold_df["rmse"].std()),
+		"r2_mean": float(fold_df["r2"].mean()),
+		"r2_std": float(fold_df["r2"].std()),
+	}
 
 
 def cross_validate_total_product_model(

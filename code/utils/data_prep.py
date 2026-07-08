@@ -197,6 +197,9 @@ def data_prep(
             feature_name="nyhetsbrev_b7",
         )
 
+    if "ukedag" in df.columns:
+        df = df[df["ukedag"] != 0].copy()
+
     if cols_to_remove is not None:
         df = df.drop(columns=cols_to_remove)
 

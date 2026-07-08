@@ -124,6 +124,48 @@ def _add_b30_features(df: pd.DataFrame) -> pd.DataFrame:
     df["antall_hf_b30_tot"] = df["antall_hf_b30_ny"] + df["antall_hf_b30_for"]
     return df
 
+def _add_f30_features(df: pd.DataFrame) -> pd.DataFrame:
+    df["antall_nye_kunder_f30_ny"] = (
+        df["antall_nye_kunder_f30_mpb01_ny"]
+        + df["antall_nye_kunder_f30_eph01_ny"]
+        + df["antall_nye_kunder_f30_epf01_ny"]
+        + df["antall_nye_kunder_f30_upr01_ny"]
+    )
+    df["antall_nye_kunder_f30_for"] = (
+        df["antall_nye_kunder_f30_mpb01_for"]
+        + df["antall_nye_kunder_f30_eph01_for"]
+        + df["antall_nye_kunder_f30_epf01_for"]
+        + df["antall_nye_kunder_f30_upr01_for"]
+    )
+    df["antall_hf_f30_ny"] = (
+        df["antall_hf_f30_mpb01_ny"]
+        + df["antall_hf_f30_eph01_ny"]
+        + df["antall_hf_f30_epf01_ny"]
+        + df["antall_hf_f30_upr01_ny"]
+    )
+    df["antall_hf_f30_for"] = (
+        df["antall_hf_f30_mpb01_for"]
+        + df["antall_hf_f30_eph01_for"]
+        + df["antall_hf_f30_epf01_for"]
+        + df["antall_hf_f30_upr01_for"]
+    )
+    df["stddev_premieendring_f30_for"] = (
+        df["stddev_premieendring_f30_eph01_for"]
+        + df["stddev_premieendring_f30_epf01_for"]
+        + df["stddev_premieendring_f30_mpb01_for"]
+        + df["stddev_premieendring_f30_upr01_for"]
+    ) / 4
+    df["snitt_premieendring_f30_for"] = (
+        df["snitt_premieendring_f30_eph01_for"]
+        + df["snitt_premieendring_f30_epf01_for"]
+        + df["snitt_premieendring_f30_mpb01_for"]
+        + df["snitt_premieendring_f30_upr01_for"]
+    ) / 4
+    df["antall_nye_kunder_f30_tot"] = df["antall_nye_kunder_f30_ny"] + df["antall_nye_kunder_f30_for"]
+    df["antall_hf_f30_tot"] = df["antall_hf_f30_ny"] + df["antall_hf_f30_for"]
+
+    return df
+
 
 def load_newsletter_dates(csv_path: str) -> pd.Series:
     df_dates = pd.read_csv(
@@ -187,6 +229,7 @@ def data_prep(
     df = _merge_data(df_dag, df_info, df_weather)
     df = _add_temperature_features(df)
     df = _add_b30_features(df)
+    df = _add_f30_features(df)
 
     if newsletter_dates_csv is not None:
         newsletter_dates = load_newsletter_dates(newsletter_dates_csv)
